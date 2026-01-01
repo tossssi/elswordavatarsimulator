@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ELSWORD アバターシミュレーター 2026 - Data Integrated</title>
+    <style>
+        * {
+            font-family: 'Inter', 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+            font-weight: 900;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        body { background-color: #1a1a1a; color: #e0e0e0; padding: 20px; display: flex; justify-content: center; min-width: 1400px; margin: 0; }
+        .presets-wrapper { display: flex; gap: 30px; }
+        .preset-container { width: 720px; background: #2c2c2c; border: 1px solid #444; border-radius: 8px; padding: 20px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
+        .header-area { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; background-color: #1a1a1a; padding: 8px 20px; border-left: 5px solid #f1c40f; border-radius: 4px; }
+        .header-title { font-size: 18px; color: #ffffff; margin: 0; letter-spacing: 2px; text-transform: uppercase; }
+        .reset-btn { background: #f1c40f; color: #000; border: none; border-radius: 4px; padding: 6px 15px; cursor: pointer; transition: opacity 0.2s; }
+        .reset-btn:hover { opacity: 0.8; }
+        .content-flex { display: flex; gap: 20px; }
+        .equip-grid { display: grid; grid-template-columns: repeat(2, 145px); grid-gap: 8px 12px; margin-bottom: 20px; }
+        .slot-box { border: 1px solid #555; background: #333; border-radius: 4px; text-align: center; white-space: nowrap; }
+        .slot-label { background: #444; color: #ccc; font-size: 12px; padding: 4px 0; border-bottom: 1px solid #555; }
+        select { width: 100%; border: none; background: transparent; padding: 8px; cursor: pointer; text-align: center; outline: none; color: #fff; }
+        select:focus { background-color: #ffffff !important; color: #000000 !important; }
+        .activation-list { border: 1px solid #444; background: #252525; width: 100%; border-radius: 6px; overflow: hidden; }
+        .activation-header { background: #3a3a3a; color: #eee; text-align: center; padding: 8px; border-bottom: 1px solid #444; }
+        .set-pool { display: flex; flex-direction: column; gap: 5px; padding: 10px; background: #1a1a1a; min-height: 120px; }
+        .set-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 15px; border: 1px solid #444; background: #2a2a2a; cursor: pointer; border-radius: 4px; opacity: 0.4; white-space: nowrap; }
+        .set-row.active { opacity: 1; border: 1px solid #f1c40f; background-color: #3a361a; }
+        .stats-section { flex-grow: 1; }
+        .stat-table { width: 100%; border-collapse: collapse; border: 1px solid #444; table-layout: fixed; }
+        .stat-table td { border: 1px solid #444; padding: 4px 10px; height: 35px; white-space: nowrap; overflow: hidden; }
+        .stat-table tr:nth-child(even) td { background-color: #333333; }
+        .stat-table tr:nth-child(odd) td { background-color: #252525; }
+        .total-row td { background: #1a1a1a !important; color: #f1c40f !important; font-size: 16px !important; padding: 10px !important; }
+        .stat-name { color: #dddddd; text-align: left; width: 60%; }
+        .stat-value { text-align: right; color: #ffffff; width: 25%; font-family: monospace; }
+        .stat-unit { text-align: center; color: #bbbbbb; width: 15%; }
+        .spacer-row td { background-color: #444 !important; height: 8px !important; padding: 0 !important; }
+    </style>
+</head>
+<body>
+<div class="presets-wrapper" id="main-wrapper"></div>
+
+<script>
+    // CSVから抽出したステータスデータ（一部省略・整理）
+    const avatarStats = {
+        "グラフロ": {
+            "武器": {"以下ダメ": 5}, "武器アクセ": {"両極": 2, "適応": 2, "クリ": 2},
+            "サポユニ": {"持続": 2, "適応": 2}, "顔下": {"以下ダメ": 2, "適応": 2},
+            "上衣": {"以下ダメ": 2, "物魔攻": 2},
+            "2セット": {"以下ダメ": 5}, "3セット": {"両極": 5}, "4セット": {"持続": 5}
+        },
+        "クレスト": {
+            "武器": {"以下ダメ": 5}, "顔中": {"両極": 2, "クリダメ": 2},
+            "下衣": {"持続": 2, "防御無視": 2}, "腕": {"物魔攻": 2, "クリ": 2},
+            "首飾り": {"強烈,超越スキダメ": 2, "動作": 2},
+            "2セット": {"両極": 4, "スキダメ": 2}, "3セット": {"以下ダメ": 4, "適応": 2}, "4セット": {"持続": 4, "クリダメ": 2}
+        },
+        "猛虎": {
+            "武器": {"以下ダメ": 5}, "顔中": {"持続": 2, "クリダメ": 2},
+            "耳飾り": {"両極": 2, "極大": 2}, "上衣": {"物魔攻": 2, "動作": 2},
+            "指輪": {"以下ダメ": 2, "適応": 2},
+            "2セット": {"両極": 4, "強烈,超越スキダメ": 4}, "3セット": {"持続": 4, "動作": 4}, "4セット": {"以下ダメ": 4, "クリ": 4}
+        },
+        "エレボス": {
+            "武器": {"持続": 5}, "サポユニ": {"両極": 2, "物魔攻": 2},
+            "顔上": {"以下ダメ": 2, "クリダメ": 2}, "顔下": {"強烈,超越スキダメ": 2, "適応": 2},
+            "下衣": {"スキダメ": 2, "防御無視": 2},
+            "2セット": {"以下ダメ": 5}, "3セット": {"両極": 5}, "4セット": {"持続": 5}
+        },
+        "ヴィタホン": {
+            "武器": {"以下ダメ": 5}, "顔中": {"両極": 2, "動作": 2},
+            "上衣": {"持続": 2, "極大": 2}, "下衣": {"物魔攻": 2, "クリ": 2},
+            "首飾り": {"強烈,超越スキダメ": 2, "クリダメ": 2},
+            "2セット": {"以下ダメ": 5}, "3セット": {"スキルCT": 5}, "4セット": {"持続": 5}
+        },
+        "深淵": {
+            "武器": {"以下ダメ": 5}, "顔上": {"両極": 2, "適応": 2},
+            "耳飾り": {"持続": 2, "クリダメ": 2}, "腕": {"物魔攻": 2, "防御無視": 2},
+            "指輪": {"以下ダメ": 2, "適応": 2},
+            "2セット": {"持続": 5}, "3セット": {"強烈,超越スキダメ": 5}, "4セット": {"以下ダメ": 5}
+        },
+        "騎士団": {
+            "武器アクセ": {"適応": 2, "スキルCT": 2}, "サポユニ": {"適応": 2, "クリ": 2},
+            "顔上": {"クリダメ": 2, "防御無視": 2}, "顔中": {"動作": 2, "クリ": 2},
+            "顔下": {"極大": 2, "クリ": 2}, "耳飾り": {"動作": 2, "クリ": 2},
+            "上衣": {"極大": 2, "クリ": 2}, "下衣": {"極大": 2, "クリ": 2},
+            "腕": {"極大": 2, "クリ": 2}, "首飾り": {"動作": 2, "クリ": 2},
+            "指輪": {"極大": 2, "クリ": 2},
+            "2セット": {"全属性抵抗": 50}, "3セット": {"全属性抵抗": 50}, "4セット": {"全属性抵抗": 50}
+        }
+    };
+
+    const equipmentData = {
+        "武器アクセ": ["グラフロ", "騎士団"], "顔上": ["エレボス", "深淵", "騎士団"],
+        "顔中": ["クレスト", "猛虎", "ヴィタホン", "騎士団"], "顔下": ["グラフロ", "エレボス", "騎士団"],
+        "耳飾り": ["猛虎", "深淵", "騎士団"], "武器": ["グラフロ", "クレスト", "猛虎", "エレボス", "ヴィタホン", "深淵"],
+        "サポユニ": ["グラフロ", "エレボス", "騎士団"], "上衣": ["グラフロ", "猛虎", "ヴィタホン", "騎士団"],
+        "下衣": ["クレスト", "エレボス", "ヴィタホン", "騎士団"], "腕": ["クレスト", "深淵", "騎士団"],
+        "首飾り": ["クレスト", "ヴィタホン", "騎士団"], "指輪": ["猛虎", "深淵", "騎士団"]
+    };
+
+    const avatarStyles = {
+        "なし": { bg: "transparent", text: "#e0e0e0" }, "グラフロ": { bg: "#ff8c00", text: "#fff" },
+        "深淵": { bg: "#800080", text: "#fff" }, "クレスト": { bg: "#301934", text: "#fff" },
+        "ヴィタホン": { bg: "#00bfff", text: "#000" }, "騎士団": { bg: "#555", text: "#fff" },
+        "猛虎": { bg: "#b8860b", text: "#fff" }, "エレボス": { bg: "#222222", text: "#fff" }
+    };
+
+    const statList = ["以下ダメ", "両極", "持続", "物魔攻", "強烈,超越スキダメ", "スキダメ", "クリダメ", "適応", "防御無視", "MP消費", "スキルCT", "極大", "クリ", "動作", "全属性抵抗", "移動速度", "デバフ解除", "12秒間クリダメ"];
+    const activeSetsByPreset = { 1: [], 2: [] };
+
+    function createPresetHTML(id, title) {
+        return `
+            <div class="preset-container" id="preset-${id}">
+                <div class="header-area"><h2 class="header-title">${title}</h2><button class="reset-btn" onclick="resetPreset(${id})">RESET</button></div>
+                <div class="content-flex">
+                    <div class="equip-section">
+                        <div class="equip-grid">
+                            <div></div> ${renderSlot("武器")} ${renderSlot("武器アクセ")} ${renderSlot("サポユニ")}
+                            ${renderSlot("顔上")} ${renderSlot("上衣")} ${renderSlot("顔中")} ${renderSlot("下衣")}
+                            ${renderSlot("顔下")} ${renderSlot("腕")} ${renderSlot("耳飾り")} ${renderSlot("首飾り")}
+                            <div></div> ${renderSlot("指輪")}
+                        </div>
+                        <div class="activation-list"><div class="activation-header">活性化リスト (MAX 3)</div><div class="set-pool" id="pool-${id}"></div></div>
+                    </div>
+                    <div class="stats-section"><table class="stat-table">
+                        <tr class="total-row"><td class="stat-name">TOTAL ATTACK</td><td class="stat-value total-atk">0</td><td class="stat-unit">%</td></tr>
+                        ${statList.map((s, i) => {
+                            let html = `<tr class="${i < 7 ? 'calc-row' : ''}"><td class="stat-name">${s}</td><td class="stat-value" data-stat="${s}">0</td><td class="stat-unit">${s==='全属性抵抗'?'':'%'}</td></tr>`;
+                            if (s === 'クリダメ' || s === 'スキルCT') html += '<tr class="spacer-row"><td colspan="3"></td></tr>';
+                            return html;
+                        }).join('')}
+                    </table></div>
+                </div>
+            </div>`;
+    }
+
+    function renderSlot(slotName) {
+        const optionsHTML = ["なし", ...equipmentData[slotName]].map(opt => `<option value="${opt}">${opt}</option>`).join('');
+        return `<div class="slot-box"><div class="slot-label">${slotName}</div><select class="equip-select" data-slot="${slotName}" onchange="handleEquipChange(this)">${optionsHTML}</select></div>`;
+    }
+
+    window.handleEquipChange = function(el) {
+        const val = el.value;
+        const container = el.closest('.preset-container');
+        const style = avatarStyles[val] || avatarStyles["なし"];
+        el.style.backgroundColor = (val === "なし") ? "transparent" : style.bg;
+        el.style.color = (val === "なし") ? "#e0e0e0" : style.text;
+        refreshActivationList(container);
+        calculateTotal(container);
+    };
+
+    function refreshActivationList(container) {
+        const presetId = container.id.split('-')[1];
+        const counts = {};
+        container.querySelectorAll('.equip-select').forEach(s => { if (s.value !== "なし") counts[s.value] = (counts[s.value] || 0) + 1; });
+        const pool = container.querySelector('.set-pool');
+        const currentActive = activeSetsByPreset[presetId];
+        pool.innerHTML = "";
+        const availableSets = Object.entries(counts).filter(([name, count]) => count >= 2);
+        activeSetsByPreset[presetId] = currentActive.filter(name => counts[name] >= 2);
+        availableSets.forEach(([name, count]) => {
+            const row = document.createElement('div');
+            row.className = 'set-row' + (activeSetsByPreset[presetId].includes(name) ? ' active' : '');
+            row.innerHTML = `<span class="set-name-text">${name}</span><span class="set-count-badge">${count} slots</span>`;
+            row.onclick = () => {
+                if (activeSetsByPreset[presetId].includes(name)) activeSetsByPreset[presetId] = activeSetsByPreset[presetId].filter(n => n !== name);
+                else if (activeSetsByPreset[presetId].length < 3) activeSetsByPreset[presetId].push(name);
+                refreshActivationList(container);
+                calculateTotal(container);
+            };
+            pool.appendChild(row);
+        });
+    }
+
+    function calculateTotal(container) {
+        const presetId = container.id.split('-')[1];
+        const totals = {};
+        statList.forEach(s => totals[s] = 0);
+
+        // 装備単体の能力加算
+        container.querySelectorAll('.equip-select').forEach(s => {
+            const ava = s.value;
+            const slot = s.dataset.slot;
+            if (avatarStats[ava] && avatarStats[ava][slot]) {
+                for (const [st, val] of Object.entries(avatarStats[ava][slot])) {
+                    if (totals.hasOwnProperty(st)) totals[st] += val;
+                }
+            }
+        });
+
+        // 活性化セット効果の加算
+        activeSetsByPreset[presetId].forEach(name => {
+            const count = Array.from(container.querySelectorAll('.equip-select')).filter(s => s.value === name).length;
+            if (avatarStats[name]) {
+                for (let i = 2; i <= Math.min(count, 4); i++) {
+                    const setKey = `${i}セット`;
+                    if (avatarStats[name][setKey]) {
+                        for (const [st, val] of Object.entries(avatarStats[name][setKey])) {
+                            if (totals.hasOwnProperty(st)) totals[st] += val;
+                        }
+                    }
+                }
+            }
+        });
+
+        // 表に反映
+        let atkSum = 0;
+        statList.forEach((s, i) => {
+            const cell = container.querySelector(`td[data-stat="${s}"]`);
+            cell.textContent = totals[s];
+            if (i < 7) atkSum += totals[s];
+        });
+        container.querySelector('.total-atk').textContent = atkSum;
+    }
+
+    window.resetPreset = function(id) {
+        const c = document.getElementById(`preset-${id}`);
+        activeSetsByPreset[id] = [];
+        c.querySelectorAll('select').forEach(s => { s.value = "なし"; handleEquipChange(s); });
+    };
+
+    const wrapper = document.getElementById('main-wrapper');
+    wrapper.innerHTML = createPresetHTML(1, "PRESET ①") + createPresetHTML(2, "PRESET ②");
+    document.querySelectorAll('.preset-container').forEach(c => {
+        c.querySelectorAll('select').forEach(s => handleEquipChange(s));
+    });
+</script>
+</body>
+</html>
